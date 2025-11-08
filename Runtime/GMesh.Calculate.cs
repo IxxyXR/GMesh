@@ -167,7 +167,6 @@ namespace CodeSmile.GraphMesh
 			{
 #if GMESH_VALIDATION
 				if (vertex.IsValid == false) throw new ArgumentException("vertex is not valid");
-				// TODO: validate disk cycle to catch possible infinite loops
 #endif
 
 				if (vertex.BaseEdgeIndex == UnsetIndex)
