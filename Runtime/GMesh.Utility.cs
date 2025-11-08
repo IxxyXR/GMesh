@@ -25,10 +25,33 @@ namespace CodeSmile.GraphMesh
 			}
 		}
 
-		/*
-		 * Flip face by reversing its loops.
-		 */
-		public void FlipFace(int faceIndex) => throw new NotImplementedException();
+	/// <summary>
+	/// Flips the face by reversing its loop winding order.
+	/// This effectively reverses the face normal direction.
+	/// </summary>
+	/// <param name="faceIndex">Index of the face to flip</param>
+	public void FlipFace(int faceIndex)
+	{
+		var face = GetFace(faceIndex);
+		if (!face.IsValid)
+			throw new ArgumentException($"Face {faceIndex} is invalid", nameof(faceIndex));
+
+		// Traverse all loops and swap their prev/next pointers
+		var loopIndex = face.FirstLoopIndex;
+		var elementCount = face.ElementCount;
+		for (var i = 0; i < elementCount; i++)
+		{
+			var loop = GetLoop(loopIndex);
+			
+			// Swap prev and next to reverse winding order
+			var temp = loop.PrevLoopIndex;
+			loop.PrevLoopIndex = loop.NextLoopIndex;
+			loop.NextLoopIndex = temp;
+			
+			SetLoop(loop);
+			loopIndex = loop.PrevLoopIndex; // Use prev since we just swapped
+		}
+	}
 
 		private (int, int) GetBaseEdgeDiskCycleIndices(int vertexIndex)
 		{
