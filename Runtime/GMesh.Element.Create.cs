@@ -211,72 +211,76 @@ namespace CodeSmile.GraphMesh
 				var edge = GMesh.Edge.Create(vertexIndexA, vertexIndexO);
 				var edgeIndex = data.AddEdge(ref edge);
 
-				// TODO: this should be handled via common method ie InsertEdge
-				// set or update disk cycle and base edge 
-				{
-					// Vertex 0
-					{
-						var v0 = data.GetVertex(vertexIndexA);
-						if (Hint.Unlikely(v0.BaseEdgeIndex == UnsetIndex))
-						{
-							v0.BaseEdgeIndex = edge.APrevEdgeIndex = edge.ANextEdgeIndex = edgeIndex;
-							data.SetVertex(v0);
-						}
-						else
-						{
-							var v0BaseEdge = data.GetEdge(v0.BaseEdgeIndex);
-							edge.APrevEdgeIndex = v0.BaseEdgeIndex;
-							edge.ANextEdgeIndex = v0BaseEdge.GetNextEdgeIndex(vertexIndexA);
+				// Insert edge into disk cycles of both vertices
+				InsertEdgeIntoDiskCycle(data, vertexIndexA, ref edge, true);
+				InsertEdgeIntoDiskCycle(data, vertexIndexO, ref edge, false);
 
-							var v0PrevEdge = data.GetEdge(edge.APrevEdgeIndex);
-							v0PrevEdge.SetNextEdgeIndex(vertexIndexA, edgeIndex);
-							data.SetEdge(v0PrevEdge);
-
-							var v0NextEdge = data.GetEdge(edge.ANextEdgeIndex);
-							v0NextEdge.SetPrevEdgeIndex(vertexIndexA, edgeIndex);
-							data.SetEdge(v0NextEdge);
-
-							// FIX: update prev edge vertex1's edge index of v0 and v1 base edges both point to prev edge.
-							// This occurs when v0 and v1 were the first vertices to be connected with an edge.
-							var prevEdgeVertex0 = data.GetVertex(v0BaseEdge.AVertexIndex);
-							if (Hint.Unlikely(prevEdgeVertex0.BaseEdgeIndex == v0.BaseEdgeIndex))
-							{
-								v0.BaseEdgeIndex = edgeIndex;
-								data.SetVertex(v0);
-							}
-						}
-					}
-
-					// Vertex 1
-					{
-						var v1 = data.GetVertex(vertexIndexO);
-						if (Hint.Unlikely(v1.BaseEdgeIndex == UnsetIndex))
-						{
-							// Note: the very first edge between two vertices will set itself as BaseEdgeIndex on both vertices.
-							// This is expected behaviour and is "fixed" when the next edge connects to V1 and detects that.
-							v1.BaseEdgeIndex = edge.OPrevEdgeIndex = edge.ONextEdgeIndex = edgeIndex;
-							data.SetVertex(v1);
-						}
-						else
-						{
-							var v1BaseEdge = data.GetEdge(v1.BaseEdgeIndex);
-							edge.OPrevEdgeIndex = v1.BaseEdgeIndex;
-							edge.ONextEdgeIndex = v1BaseEdge.GetNextEdgeIndex(vertexIndexO);
-
-							var v1PrevEdge = data.GetEdge(edge.OPrevEdgeIndex);
-							v1PrevEdge.SetNextEdgeIndex(vertexIndexO, edgeIndex);
-							data.SetEdge(v1PrevEdge);
-
-							var v1NextEdge = data.GetEdge(edge.ONextEdgeIndex);
-							v1NextEdge.SetPrevEdgeIndex(vertexIndexO, edgeIndex);
-							data.SetEdge(v1NextEdge);
-						}
-					}
-
-					data.SetEdge(edge);
-				}
+				data.SetEdge(edge);
 
 				return edgeIndex;
+			}
+
+			/// <summary>
+			/// Inserts an edge into a vertex's disk cycle, handling both first-edge and subsequent-edge cases.
+			/// </summary>
+			private static void InsertEdgeIntoDiskCycle(in GraphData data, int vertexIndex, ref Edge edge, bool isVertexA)
+			{
+				var vertex = data.GetVertex(vertexIndex);
+				
+				// First edge on this vertex?
+				if (Hint.Unlikely(vertex.BaseEdgeIndex == UnsetIndex))
+				{
+					// Note: the very first edge between two vertices will set itself as BaseEdgeIndex on both vertices.
+					// This is expected behaviour and is "fixed" when the next edge connects to the second vertex and detects that.
+					vertex.BaseEdgeIndex = edge.Index;
+					if (isVertexA)
+					{
+						edge.APrevEdgeIndex = edge.ANextEdgeIndex = edge.Index;
+					}
+					else
+					{
+						edge.OPrevEdgeIndex = edge.ONextEdgeIndex = edge.Index;
+					}
+					data.SetVertex(vertex);
+				}
+				else
+				{
+					var baseEdge = data.GetEdge(vertex.BaseEdgeIndex);
+					var nextEdgeIndex = baseEdge.GetNextEdgeIndex(vertexIndex);
+
+					// Set this edge's prev/next pointers
+					if (isVertexA)
+					{
+						edge.APrevEdgeIndex = vertex.BaseEdgeIndex;
+						edge.ANextEdgeIndex = nextEdgeIndex;
+					}
+					else
+					{
+						edge.OPrevEdgeIndex = vertex.BaseEdgeIndex;
+						edge.ONextEdgeIndex = nextEdgeIndex;
+					}
+
+					// Update neighboring edges in the disk cycle
+					var prevEdge = data.GetEdge(edge.GetPrevEdgeIndex(vertexIndex));
+					prevEdge.SetNextEdgeIndex(vertexIndex, edge.Index);
+					data.SetEdge(prevEdge);
+
+					var nextEdge = data.GetEdge(edge.GetNextEdgeIndex(vertexIndex));
+					nextEdge.SetPrevEdgeIndex(vertexIndex, edge.Index);
+					data.SetEdge(nextEdge);
+
+					// FIX: Handle special case where both vertices of the base edge point to it
+					// This occurs when these vertices were first connected with an edge
+					if (isVertexA)
+					{
+						var prevEdgeOtherVertex = data.GetVertex(baseEdge.AVertexIndex);
+						if (Hint.Unlikely(prevEdgeOtherVertex.BaseEdgeIndex == vertex.BaseEdgeIndex))
+						{
+							vertex.BaseEdgeIndex = edge.Index;
+							data.SetVertex(vertex);
+						}
+					}
+				}
 			}
 
 			public static void Edges(in GraphData data, in NativeArray<int> vertexIndices, ref NativeArray<int> edgeIndices)
