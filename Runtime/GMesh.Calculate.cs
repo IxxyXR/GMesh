@@ -101,7 +101,11 @@ namespace CodeSmile.GraphMesh
 		{
 			public static float3 Centroid(in GraphData data)
 			{
-				// TODO: this could be a parallel job
+				// NOTE: Parallelization considered but deferred. Would require:
+				// 1) Breaking API change to return JobHandle (async pattern)
+				// 2) Parallel reduction implementation (partial sums + combine pass)
+				// 3) Job overhead may exceed benefits for typical mesh sizes (<100k vertices)
+				// Consider implementing if profiling shows this is a bottleneck.
 				var sum = float3.zero;
 				var vCount = data.Vertices.Length; // enumerate the entire list, including possibly invalid vertices
 				for (var i = 0; i < vCount; i++)
