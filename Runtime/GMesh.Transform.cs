@@ -22,7 +22,7 @@ namespace CodeSmile.GraphMesh
 		/// Applies the transformation to all vertices with the Pivot as the center.
 		/// </summary>
 		/// <param name="transform"></param>
-		public void ApplyTransform(in Transform transform) => Transform.Apply(_data, transform);
+		public void ApplyTransform(in Transform transform) => Transform.Apply(_data, transform, _pivot);
 
 		/// <summary>
 		/// GMesh transform representation.
@@ -37,19 +37,27 @@ namespace CodeSmile.GraphMesh
 			[Tooltip("Scale is self-explanatory")]
 			public float3 Scale;
 
-			internal static void Apply(in GraphData data, in Transform t)
+
+		internal static void Apply(in GraphData data, in Transform t, in float3 pivot)
+		{
+			var rigidTransform = t.AsRigidTransform();
+			var vCount = data.Vertices.Length;
+			for (var i = 0; Hint.Likely(i < vCount); i++)
 			{
-				var rigidTransform = t.AsRigidTransform();
-				var vCount = data.Vertices.Length;
-				for (var i = 0; Hint.Likely(i < vCount); i++)
-				{
-					var vertex = data.GetVertex(i);
-					var vPos = vertex.Position;
-					// TODO: respect the pivot ...
-					vertex.Position = math.transform(rigidTransform, vPos) * t.Scale;
-					data.SetVertex(vertex);
-				}
+				var vertex = data.GetVertex(i);
+				var vPos = vertex.Position;
+				
+				// Transform relative to pivot:
+				// 1. Move to pivot origin
+				var localPos = vPos - pivot;
+				// 2. Apply rotation and scale
+				localPos = math.transform(rigidTransform, localPos) * t.Scale;
+				// 3. Move back from pivot origin
+				vertex.Position = localPos + pivot;
+				
+				data.SetVertex(vertex);
 			}
+		}
 
 			public Transform(float3 translation, float3 rotation, float3 scale)
 			{
