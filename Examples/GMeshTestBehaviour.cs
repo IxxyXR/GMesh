@@ -93,9 +93,18 @@ public class GMeshTestBehaviour : MonoBehaviour
 
 		for (var t = 0; t < _edgeTesselation; t++)
 		{
-			var edgeCount = _gMesh.ValidEdgeCount;
-			for (var i = 0; i < edgeCount; i++)
-				_gMesh.SplitEdgeAndCreateVertex(i);
+			// Snapshot edge indices before splitting to avoid re-splitting newly created edges
+			var edgesToSplit = new System.Collections.Generic.List<int>();
+			var edges = _gMesh.Edges;
+			for (var i = 0; i < edges.Length; i++)
+			{
+				if (edges[i].IsValid)
+					edgesToSplit.Add(i);
+			}
+
+			// Split the snapshotted edges
+			foreach (var edgeIndex in edgesToSplit)
+				_gMesh.SplitEdgeAndCreateVertex(edgeIndex);
 		}
 
 		if (_logToConsole)
