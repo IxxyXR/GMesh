@@ -81,8 +81,16 @@ namespace CodeSmile.GraphMesh
 				triangulateHandle = triangulateJob.Schedule(ValidLoopCount, 4);
 			}
 			else
-				throw new NotImplementedException("TODO: 32 bit mesh indices");
-			
+			{
+				var triangulateJob = new JMesh.FanTriangulateFaces32BitJob
+				{
+					Faces = faces, Loops = Loops, Vertices = Vertices, TriangleStartIndices = triangleStartIndices,
+					VBuffer = meshData.GetVertexData<JMesh.VertexPositionNormalUV>(),
+					IBuffer = meshData.GetIndexData<uint>(),
+				};
+				triangulateHandle = triangulateJob.Schedule(ValidLoopCount, 4);
+			}
+
 			// COMPLETE & DISPOSE
 			totalVCount.Dispose();
 			totalICount.Dispose();
@@ -170,6 +178,55 @@ namespace CodeSmile.GraphMesh
 							}
 
 							IBuffer[iIndex++] = (ushort)(triangleStartVertIndex + triangleVertIndex);
+							VBuffer[vIndex++] = new VertexPositionNormalUV(loopVert.Position, float3.zero, float2.zero);
+
+							triangleVertIndex++;
+
+							loop = Loops[loop.NextLoopIndex];
+						}
+					}
+				}
+			}
+
+			[BurstCompile] [StructLayout(LayoutKind.Sequential)]
+			public struct FanTriangulateFaces32BitJob : IJobParallelFor
+			{
+				[ReadOnly] [NativeDisableParallelForRestriction] public NativeArray<Face>.ReadOnly Faces;
+				[ReadOnly] [NativeDisableParallelForRestriction] public NativeArray<Loop>.ReadOnly Loops;
+				[ReadOnly] [NativeDisableParallelForRestriction] public NativeArray<Vertex>.ReadOnly Vertices;
+				[ReadOnly] [NativeDisableParallelForRestriction] public NativeArray<int> TriangleStartIndices;
+
+				[WriteOnly] [NoAlias] [NativeDisableParallelForRestriction] [NativeDisableContainerSafetyRestriction]
+				public NativeArray<VertexPositionNormalUV> VBuffer;
+
+				[WriteOnly] [NoAlias] [NativeDisableParallelForRestriction] [NativeDisableContainerSafetyRestriction]
+				public NativeArray<uint> IBuffer;
+
+				public void Execute(int loopIndex)
+				{
+					// Fan triangulation: Tesselate into triangles where all originate from loop's first vertex
+					// => only guaranteed to work with convex polygons
+					var loop = Loops[loopIndex];
+					var face = Faces[loop.FaceIndex];
+					if (Hint.Unlikely(face.FirstLoopIndex == loopIndex) && Hint.Likely(face.IsValid))
+					{
+						var iIndex = TriangleStartIndices[face.Index];
+						var vIndex = loopIndex;
+						var triangleStartVertIndex = vIndex;
+						uint triangleVertIndex = 0;
+
+						var elementCount = face.ElementCount;
+						for (var i = 0; i < elementCount; i++)
+						{
+							var loopVert = Vertices[loop.StartVertexIndex];
+							if (Hint.Likely(triangleVertIndex > 2))
+							{
+								// add extra fan triangles from first vertex to last vertex
+								IBuffer[iIndex++] = (uint)triangleStartVertIndex;
+								IBuffer[iIndex++] = (uint)(triangleStartVertIndex + triangleVertIndex - 1);
+							}
+
+							IBuffer[iIndex++] = (uint)(triangleStartVertIndex + triangleVertIndex);
 							VBuffer[vIndex++] = new VertexPositionNormalUV(loopVert.Position, float3.zero, float2.zero);
 
 							triangleVertIndex++;
