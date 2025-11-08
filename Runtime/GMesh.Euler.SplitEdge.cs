@@ -129,6 +129,12 @@ namespace CodeSmile.GraphMesh
 			var splitEdgeLoop = GetLoop(splitEdge.BaseLoopIndex);
 			var splitEdgeOppositeLoop = GetLoop(splitEdgeLoop.NextRadialLoopIndex);
 
+#if GMESH_VALIDATION
+			// Validate 2-manifold topology: edge should have at most 2 loops (radial cycle)
+			if (splitEdgeOppositeLoop.NextRadialLoopIndex != splitEdgeLoop.Index)
+				throw new InvalidOperationException($"Edge {splitEdge.Index} violates 2-manifold constraint - has more than 2 adjacent faces");
+#endif
+
 			// if the edge's base loop does not belong to us, update the edge's BaseLoop and switch loops
 			if (splitEdge.ContainsVertex(splitEdgeLoop.StartVertexIndex) == false)
 			{
@@ -140,8 +146,9 @@ namespace CodeSmile.GraphMesh
 
 			var insertedLoop1 = InsertLoop(ref splitEdgeLoop, ref insertedEdge, newVertexIndex);
 
-			// FIXME: assumption that there will only be at most two loops around an edge
-			// check if we need to split the loop on the other side, too
+			// NOTE: 2-manifold topology constraint - edges have at most two adjacent faces (loops)
+			// Border edges have one loop, internal edges have two loops (one per adjacent face)
+			// Check if we need to split the loop on the opposite side of the edge
 			if (splitEdgeLoop.IsBorderLoop() == false)
 			{
 				splitEdgeOppositeLoop.EdgeIndex = insertedEdge.Index;
