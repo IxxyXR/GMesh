@@ -21,10 +21,45 @@ namespace CodeSmile.GraphMesh
 			if (mesh == null)
 				throw new ArgumentNullException(nameof(mesh));
 
-			var gmesh = new GMesh();
-			// TODO
+			if (mesh.vertexCount == 0)
+				throw new ArgumentException("mesh has no vertices", nameof(mesh));
 
-			return null;
+			// Get mesh data
+			var vertices = mesh.vertices;
+			var triangles = mesh.triangles;
+			var triangleCount = triangles.Length / 3;
+
+			if (triangleCount == 0)
+				throw new ArgumentException("mesh has no triangles", nameof(mesh));
+
+			// Create GMesh and add all vertices first
+			var gmesh = new GMesh();
+			var vertexCount = vertices.Length;
+			var vertexIndices = new NativeArray<int>(vertexCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+
+			// Create all vertices
+			for (var i = 0; i < vertexCount; i++)
+			{
+				var v = Vertex.Create(vertices[i]);
+				vertexIndices[i] = gmesh.AddVertex(ref v);
+			}
+
+			// Create faces from triangles (every 3 indices = 1 triangle face)
+			var faceVertices = new NativeArray<int>(3, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+			for (var t = 0; t < triangleCount; t++)
+			{
+				var baseIndex = t * 3;
+				faceVertices[0] = vertexIndices[triangles[baseIndex]];
+				faceVertices[1] = vertexIndices[triangles[baseIndex + 1]];
+				faceVertices[2] = vertexIndices[triangles[baseIndex + 2]];
+
+				gmesh.CreateFace(faceVertices);
+			}
+
+			faceVertices.Dispose();
+			vertexIndices.Dispose();
+
+			return gmesh;
 		}
 
 		public Mesh ToMesh(Mesh mesh = null)
