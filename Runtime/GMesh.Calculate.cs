@@ -117,14 +117,22 @@ namespace CodeSmile.GraphMesh
 #if GMESH_VALIDATION
 				if (face.IsValid == false) throw new ArgumentException("face is not valid");
 				if (face.FirstLoopIndex == UnsetIndex) throw new ArgumentException("face's loop index is unset");
-				// TODO: validate loop cycle to catch possible infinite loops
 #endif
 
 				var firstLoopIndex = face.FirstLoopIndex;
 				var sumOfVertexPositions = float3.zero;
 				var loop = data.GetLoop(firstLoopIndex);
+
+#if GMESH_VALIDATION
+			var iterationCount = 0;
+			var maxIterations = face.ElementCount + 1; // +1 for safety margin
+#endif
 				do
 				{
+#if GMESH_VALIDATION
+				if (++iterationCount > maxIterations)
+					throw new InvalidOperationException($"Infinite loop detected in face {face.Index} loop cycle");
+#endif
 					sumOfVertexPositions += data.GetVertex(loop.StartVertexIndex).Position;
 					loop = data.GetLoop(loop.NextLoopIndex);
 				} while (Hint.Likely(loop.Index != firstLoopIndex));
@@ -155,7 +163,7 @@ namespace CodeSmile.GraphMesh
 			{
 #if GMESH_VALIDATION
 				if (vertex.IsValid == false) throw new ArgumentException("vertex is not valid");
-				// TODO: validate loop cycle to catch possible infinite loops
+				// TODO: validate disk cycle to catch possible infinite loops
 #endif
 
 				if (vertex.BaseEdgeIndex == UnsetIndex)
@@ -163,8 +171,16 @@ namespace CodeSmile.GraphMesh
 				
 				var edgeCount = 0;
 				var edge = data.GetEdge(vertex.BaseEdgeIndex);
+#if GMESH_VALIDATION
+				var iterationCount = 0;
+				var maxIterations = 100; // reasonable upper bound for vertex valence
+#endif
 				do
 				{
+#if GMESH_VALIDATION
+				if (++iterationCount > maxIterations)
+					throw new InvalidOperationException($"Infinite loop detected in vertex {vertex.Index} disk cycle");
+#endif
 					edgeCount++;
 					edge = data.GetEdge(edge.GetNextEdgeIndex(vertex.Index));
 				} while (Hint.Likely(edge.Index != vertex.BaseEdgeIndex));

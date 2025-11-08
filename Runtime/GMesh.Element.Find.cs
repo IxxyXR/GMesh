@@ -1,6 +1,8 @@
 ﻿// Copyright (C) 2021-2022 Steffen Itterheim
 // Refer to included LICENSE file for terms and conditions.
 
+using System;
+
 using Unity.Burst;
 using Unity.Burst.CompilerServices;
 
@@ -28,9 +30,6 @@ namespace CodeSmile.GraphMesh
 		{
 			public static int ExistingEdgeIndex(in GraphData data, int v0Index, int v1Index)
 			{
-#if GMESH_VALIDATION
-				// TODO: validate disk cycle to prevent infinite loop
-#endif
 
 				// check all edges in cycle, return this edge's index if it points to v1
 				var edgeIndex = data.GetVertex(v0Index).BaseEdgeIndex;
@@ -38,8 +37,17 @@ namespace CodeSmile.GraphMesh
 					return UnsetIndex;
 
 				var edge = data.GetEdge(edgeIndex);
+
+#if GMESH_VALIDATION
+				var iterationCount = 0;
+				var maxIterations = 100; // reasonable upper bound for vertex valence
+#endif
 				do
 				{
+#if GMESH_VALIDATION
+				if (++iterationCount > maxIterations)
+					throw new InvalidOperationException($"Infinite loop detected in vertex {v0Index} disk cycle");
+#endif
 					if (edge.ContainsVertex(v1Index))
 						return edge.Index;
 
