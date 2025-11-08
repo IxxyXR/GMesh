@@ -271,6 +271,8 @@ public static class Validate
 		}
 	}
 
+	// Removed: BMesh comparison code - BMeshUnity library not included in this project
+	/*
 	public static void CreateBMeshForComparison(IList<float3> vertices)
 	{
 		var bmesh = new BMesh();
@@ -283,6 +285,7 @@ public static class Validate
 		bmesh.AddFace(0, 1, 2);
 		bmesh.DebugLogAllElements();
 	}
+	*/
 
 	public static void MeshElementCount(GMesh mesh, int faceCount, int loopCount, int edgeCount, int vertexCount)
 	{
